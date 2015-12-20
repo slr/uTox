@@ -1151,15 +1151,15 @@ static void tox_thread_message(Tox *tox, ToxAV *av, uint64_t time, uint8_t msg,
         case TOX_GROUP_AUDIO_START:{
             /* param1: group #
              */
-            break;
             postmessage(GROUP_AUDIO_START, param1, 0, NULL);
+            break;
         }
         /* Disabled */
         case TOX_GROUP_AUDIO_END:{
             /* param1: group #
              */
-            break;
             postmessage(GROUP_AUDIO_END, param1, 0, NULL);
+            break;
         }
     } // End of switch.
 }
@@ -1692,7 +1692,6 @@ void tox_message(uint8_t tox_message_id, uint16_t param1, uint16_t param2, void 
         }
         case GROUP_AUDIO_START: {
             GROUPCHAT *g = &group[param1];
-
             if (g->type == TOX_GROUPCHAT_TYPE_AV) {
                 g->audio_calling = 1;
                 toxaudio_postmessage(GROUP_AUDIO_CALL_START, param1, 0, NULL);

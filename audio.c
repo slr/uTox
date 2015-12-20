@@ -348,7 +348,7 @@ void audio_thread(void *args){
             }
 
             case GROUP_AUDIO_CALL_START: {
-                break; // TODO, new groups API
+                debug("Starting Audio GroupCall\n");
                 audio_count++;
                 groups_audio[m->param1] = 1;
                 if(!record_on) {
@@ -356,7 +356,7 @@ void audio_thread(void *args){
                     if(device_in) {
                         alccapturestart(device_in);
                         record_on = 1;
-                        debug("Starting Audio GroupCall\n");
+                        debug("Starting Audio device for GroupCall\n");
                     }
                 }
                 break;
@@ -392,7 +392,6 @@ void audio_thread(void *args){
             }
 
             case GROUP_AUDIO_CALL_END: {
-                break; // TODO, new groups API
                 if(!groups_audio[m->param1]) {
                     break;
                 }
