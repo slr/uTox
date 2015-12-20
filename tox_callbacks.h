@@ -121,7 +121,7 @@ static void callback_connection_status(Tox *tox, uint32_t fid, TOX_CONNECTION st
     }
 }
 
-void callback_av_group_audio(Tox *tox, int groupnumber, int peernumber, const int16_t *pcm, unsigned int samples,
+void callback_av_group_audio(void *tox, int groupnumber, int peernumber, const int16_t *pcm, unsigned int samples,
                                     uint8_t channels, unsigned int sample_rate, void *userdata);
 
 static void callback_group_invite(Tox *tox, int fid, uint8_t type, const uint8_t *data, uint16_t length, void *UNUSED(userdata)) {
@@ -129,8 +129,7 @@ static void callback_group_invite(Tox *tox, int fid, uint8_t type, const uint8_t
     if (type == TOX_GROUPCHAT_TYPE_TEXT) {
         gid = tox_join_groupchat(tox, fid, data, length);
     } else if (type == TOX_GROUPCHAT_TYPE_AV) {
-        // TODO FIX THIS AFTER NEW GROUP API IS RELEASED
-        // gid = toxav_join_av_groupchat(tox, fid, data, length, &callback_av_group_audio, NULL);
+        gid = toxav_join_av_groupchat(tox, fid, data, length, &callback_av_group_audio, NULL);
     }
 
     if(gid != -1) {

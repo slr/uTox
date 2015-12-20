@@ -28,7 +28,7 @@ static void utox_filter_audio_kill(Filter_Audio *filter_audio_handle){
 
 static ALCdevice *device_out, *device_in;
 static ALCcontext *context;
-/* TODO hacky fix. This source list should be a VLA with a way to link sources to friends.
+/* TODO hacky fix. This source list should be a DLA with a way to link sources to friends.
  * NO SRSLY don't leave this like this! */
 static ALuint source[UTOX_MAX_NUM_FRIENDS];
 
@@ -229,6 +229,7 @@ void audio_thread(void *args){
 
     {
         unsigned int i;
+        /* TODO: rewrite this, we don't need a ring buffer for each friend */
         for (i = 0; i < UTOX_MAX_NUM_FRIENDS; ++i) {
             alSourcei(ringSrc[i], AL_LOOPING, AL_TRUE);
             alSourcei(ringSrc[i], AL_BUFFER, RingBuffer);
@@ -543,8 +544,7 @@ void audio_thread(void *args){
                         }
                     }
 
-                    // TODO REMOVED until new groups api can be implemented.
-                    /*Tox *tox = toxav_get_tox(av);
+                    Tox *tox = toxav_get_tox(av);
                     uint32_t num_chats = tox_count_chatlist(tox);
 
                     if (num_chats != 0) {
@@ -555,7 +555,7 @@ void audio_thread(void *args){
                                 toxav_group_send_audio(tox, chats[i], (int16_t *)buf, perframe, UTOX_DEFAULT_AUDIO_CHANNELS, UTOX_DEFAULT_SAMPLE_RATE_A);
                             }
                         }
-                    }*/
+                    }
                 }
             }
         }
@@ -588,58 +588,63 @@ void audio_thread(void *args){
     debug("UTOX AUDIO:\tClean thread exit!\n");
 }
 
-// COMMENTED OUT FOR NEW GC
-    /*void callback_av_group_audio(Tox *tox, int groupnumber, int peernumber, const int16_t *pcm, unsigned int samples,
-                                        uint8_t channels, unsigned int sample_rate, void *userdata)
-    {
-        GROUPCHAT *g = &group[groupnumber];
+void callback_av_group_audio(void *tox,
+                             int groupnumber,
+                             int peernumber,
+                             const int16_t *pcm,
+                             unsigned int samples,
+                             uint8_t channels,
+                             unsigned int sample_rate,
+                             void *userdata)
+{
+    GROUPCHAT *g = &group[groupnumber];
 
-        uint64_t time = get_time();
+    uint64_t time = get_time();
 
-        if (time - g->last_recv_audio[peernumber] > (uint64_t)1 * 1000 * 1000 * 1000) {
-            postmessage(GROUP_UPDATE, groupnumber, peernumber, NULL);
-        }
-
-        g->last_recv_audio[peernumber] = time;
-
-        if(!channels || channels > 2 || g->muted) {
-            return;
-        }
-
-        ALuint bufid;
-        ALint processed = 0, queued = 16;
-        alGetSourcei(g->source[peernumber], AL_BUFFERS_PROCESSED, &processed);
-        alGetSourcei(g->source[peernumber], AL_BUFFERS_QUEUED, &queued);
-        alSourcei(g->source[peernumber], AL_LOOPING, AL_FALSE);
-
-        if(processed) {
-            ALuint bufids[processed];
-            alSourceUnqueueBuffers(g->source[peernumber], processed, bufids);
-            alDeleteBuffers(processed - 1, bufids + 1);
-            bufid = bufids[0];
-        } else if(queued < 16) {
-            alGenBuffers(1, &bufid);
-        } else {
-            debug("dropped audio frame %i %i\n", groupnumber, peernumber);
-            return;
-        }
-
-        alBufferData(bufid, (channels == 1) ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, pcm, samples * 2 * channels, sample_rate);
-        alSourceQueueBuffers(g->source[peernumber], 1, &bufid);
-
-        ALint state;
-        alGetSourcei(g->source[peernumber], AL_SOURCE_STATE, &state);
-        if(state != AL_PLAYING) {
-            alSourcePlay(g->source[peernumber]);
-            debug("Starting source %i %i\n", groupnumber, peernumber);
-        }
+    if (time - g->last_recv_audio[peernumber] > (uint64_t)1 * 1000 * 1000 * 1000) {
+        postmessage(GROUP_UPDATE, groupnumber, peernumber, NULL);
     }
 
-    void group_av_peer_add(GROUPCHAT *g, int peernumber) {
-        alGenSources(1, &g->source[peernumber]);
+    g->last_recv_audio[peernumber] = time;
+
+    if(!channels || channels > 2 || g->muted) {
+        return;
     }
 
-    void group_av_peer_remove(GROUPCHAT *g, int peernumber) {
-        alDeleteSources(1, &g->source[peernumber]);
+    ALuint bufid;
+    ALint processed = 0, queued = 16;
+    alGetSourcei(g->source[peernumber], AL_BUFFERS_PROCESSED, &processed);
+    alGetSourcei(g->source[peernumber], AL_BUFFERS_QUEUED, &queued);
+    alSourcei(g->source[peernumber], AL_LOOPING, AL_FALSE);
+
+    if(processed) {
+        ALuint bufids[processed];
+        alSourceUnqueueBuffers(g->source[peernumber], processed, bufids);
+        alDeleteBuffers(processed - 1, bufids + 1);
+        bufid = bufids[0];
+    } else if(queued < 16) {
+        alGenBuffers(1, &bufid);
+    } else {
+        debug("dropped audio frame %i %i\n", groupnumber, peernumber);
+        return;
     }
-    */
+
+    alBufferData(bufid, (channels == 1) ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, pcm, samples * 2 * channels, sample_rate);
+    alSourceQueueBuffers(g->source[peernumber], 1, &bufid);
+
+    ALint state;
+    alGetSourcei(g->source[peernumber], AL_SOURCE_STATE, &state);
+    if(state != AL_PLAYING) {
+        alSourcePlay(g->source[peernumber]);
+        debug("Starting source %i %i\n", groupnumber, peernumber);
+    }
+}
+
+void group_av_peer_add(GROUPCHAT *g, int peernumber) {
+    alGenSources(1, &g->source[peernumber]);
+}
+
+void group_av_peer_remove(GROUPCHAT *g, int peernumber) {
+    alDeleteSources(1, &g->source[peernumber]);
+}
+

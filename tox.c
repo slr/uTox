@@ -1092,9 +1092,7 @@ static void tox_thread_message(Tox *tox, ToxAV *av, uint64_t time, uint8_t msg,
         case TOX_GROUP_CREATE: {
             int g = -1;
             if (param1) {
-                // TODO FIX THIS AFTER NEW GROUP API
-                // g = toxav_add_av_groupchat(tox, &callback_av_group_audio, NULL);
-                g = tox_add_groupchat(tox);
+                g = toxav_add_av_groupchat(tox, &callback_av_group_audio, NULL);
             } else {
                 g = tox_add_groupchat(tox);
             }
@@ -1617,7 +1615,7 @@ void tox_message(uint8_t tox_message_id, uint16_t param1, uint16_t param2, void 
             if (g->type == TOX_GROUPCHAT_TYPE_AV) {
                 g->last_recv_audio[param2] = g->last_recv_audio[g->peers];
                 g->last_recv_audio[g->peers] = 0;
-                // REMOVED UNTIL AFTER NEW GCs group_av_peer_remove(g, param2);
+                group_av_peer_remove(g, param2);
                 g->source[param2] = g->source[g->peers];
             }
 
@@ -1647,7 +1645,7 @@ void tox_message(uint8_t tox_message_id, uint16_t param1, uint16_t param2, void 
 
             if(tox_message_id == GROUP_PEER_ADD) {
                 if (g->type == TOX_GROUPCHAT_TYPE_AV) {
-                    // todo fix group_av_peer_add(g, param2);
+                    group_av_peer_add(g, param2);
                 }
 
                 if (tox_group_peernumber_is_ours(data, param1, param2)) {
