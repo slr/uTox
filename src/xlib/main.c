@@ -461,6 +461,18 @@ void draw_tray_icon(void){
 
     UTOX_NATIVE_IMAGE *icon = decode_image(icon_data, icon_size, &width, &height, 1);
     if(UTOX_NATIVE_IMAGE_IS_VALID(icon)) {
+        if (!trayicon_gc) {
+            trayicon_gc = XCreateGC(display, root, 0, 0);
+        }
+
+        if (trayicon_drawbuf) {
+            XFreePixmap(display, trayicon_drawbuf);
+            XRenderFreePicture(display, trayicon_renderpic);
+        }
+
+        trayicon_drawbuf   = XCreatePixmap(display, tray_window, tray_width, tray_height, depth);
+        trayicon_renderpic = XRenderCreatePicture(display, trayicon_drawbuf, pictformat, 0, NULL);
+
         /* Get tray window size */
         int32_t x_r, y_r;
         uint32_t border_r, depth_r;
@@ -488,6 +500,8 @@ void draw_tray_icon(void){
         XCopyArea(display, trayicon_drawbuf, tray_window, trayicon_gc, 0, 0, tray_width, tray_height, 0, 0);
 
         free(icon);
+
+        XMapWindow(display, tray_window);
     } else {
         debug("Tray no workie, that not gud!\n");
     }
@@ -497,20 +511,9 @@ void create_tray_icon(void){
     tray_window = XCreateSimpleWindow(display, RootWindow(display, screen), 0, 0, tray_width, tray_height, 0, BlackPixel(display, screen), WhitePixel(display, screen));
     XSelectInput(display, tray_window, ButtonPress);
 
-    /* Get ready to draw a tray icon */
-    trayicon_gc        = XCreateGC(display, root, 0, 0);
-    trayicon_drawbuf   = XCreatePixmap(display, tray_window, tray_width, tray_height, depth);
-    trayicon_renderpic = XRenderCreatePicture(display, trayicon_drawbuf, pictformat, 0, NULL);
     /* Send icon to the tray */
     send_message(display, XGetSelectionOwner(display, XInternAtom(display, "_NET_SYSTEM_TRAY_S0", False)), SYSTEM_TRAY_REQUEST_DOCK, tray_window, 0, 0);
     /* Draw the tray */
-    draw_tray_icon();
-    /* Reset the tray draw/picture buffers with the new tray size */
-    XFreePixmap(display, trayicon_drawbuf);
-    trayicon_drawbuf = XCreatePixmap(display, tray_window, tray_width, tray_height, depth);
-    XRenderFreePicture(display, trayicon_renderpic);
-    trayicon_renderpic = XRenderCreatePicture(display, trayicon_drawbuf, pictformat, 0, NULL);
-    /* Redraw the tray one last time! */
     draw_tray_icon();
 }
 
@@ -537,36 +540,45 @@ void togglehide(void) {
 
 void tray_window_event(XEvent event) {
     switch(event.type){
-    case ConfigureNotify: {
-        XConfigureEvent *ev = &event.xconfigure;
-        if(tray_width != ev->width || tray_height != ev->height) {
-            debug("Tray resized w:%i h:%i\n", ev->width, ev->height);
+        case ConfigureNotify: {
+            XConfigureEvent *ev = &event.xconfigure;
+            if(tray_width != ev->width || tray_height != ev->height) {
+                debug("Tray resized w:%i h:%i\n", ev->width, ev->height);
 
-            if(ev->width > tray_width || ev->height > tray_height) {
+                if(ev->width > tray_width || ev->height > tray_height) {
+                    tray_width = ev->width;
+                    tray_height = ev->height;
+                }
+
                 tray_width = ev->width;
                 tray_height = ev->height;
 
-                XFreePixmap(display, trayicon_drawbuf);
-                trayicon_drawbuf = XCreatePixmap(display, tray_window, tray_width, tray_height, 24); // TODO get depth from X not code
-                XRenderFreePicture(display, trayicon_renderpic);
-                trayicon_renderpic = XRenderCreatePicture(display, trayicon_drawbuf,XRenderFindStandardFormat(display, PictStandardRGB24), 0, NULL);
+                draw_tray_icon();
             }
 
-            tray_width = ev->width;
-            tray_height = ev->height;
+            break;
+        }
+        case ButtonPress: {
+            XButtonEvent *ev = &event.xbutton;
 
-            draw_tray_icon();
+            if (ev->button == Button1) {
+                togglehide();
+            }
+            break;
+        }
+        case NoExpose: {
+            /* No expose, do nothing! */
+            break;
+        }
+        case ClientMessage: {
+
+            debug("uTox Tray:\tClient message. DEBUG HERE!\n");
+            break;
         }
 
-        break;
-    }
-    case ButtonPress: {
-        XButtonEvent *ev = &event.xbutton;
-
-        if (ev->button == Button1) {
-            togglehide();
+        default: {
+            debug("uTox Tray:\tUnhandled event, %u\n", event.type);
         }
-    }
     }
 }
 

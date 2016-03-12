@@ -43,7 +43,7 @@ _Bool doevent(XEvent event)
     switch(event.type) {
     case Expose: {
         enddraw(0, 0, utox_window_width, utox_window_height);
-        draw_tray_icon();
+        draw_tray_icon(); /* This is a bad place for this */
         // debug("expose\n");
         break;
     }
@@ -223,7 +223,7 @@ _Bool doevent(XEvent event)
                     grabx = grabpx;
                     grabpx = w;
                 }
-
+ /* This is a bad place for this */
                 if(graby < grabpy) {
                     grabpy -= graby;
                 } else {
